@@ -19,18 +19,19 @@
         <config-file target="res/xml/config.xml" parent="/*">
             <feature name="MifarePlugin">
                 <param name="android-package" value="se.frostyelk.cordova.mifare.MifarePlugin"/>
-                <param name="onload" value="true" />
+                <param name="onload" value="true"/>
             </feature>
         </config-file>
 
         <config-file target="AndroidManifest.xml" parent="/*/application/activity">
-                <intent-filter>
-                    <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
-                    <action android:name="android.nfc.action.TAG_DISCOVERED"/>
-                    <!-- TECH_DISCOVERED needs a separate xml def file for the tag data-->
-                    <!--<action android:name="android.nfc.action.TECH_DISCOVERED"/>-->
-                    <category android:name="android.intent.category.DEFAULT" />
-                </intent-filter>
+            <intent-filter>
+                <action android:name="android.nfc.action.NDEF_DISCOVERED"/>
+                <action android:name="android.nfc.action.TAG_DISCOVERED"/>
+                <action android:name="android.nfc.action.TECH_DISCOVERED"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data android:name="android.nfc.action.TECH_DISCOVERED"
+                       android:resource="@xml/nfc_tech_filter"/>
         </config-file>
 
         <config-file target="AndroidManifest.xml" parent="/manifest">
@@ -44,6 +45,7 @@
         <source-file src="libs/android/nxpnfcliblite.jar" target-dir="libs" framework="true"/>
 
         <source-file src="src/android/MifarePlugin.java" target-dir="src/se/frostyelk/cordova/mifare"/>
+        <source-file src="xml/nfc_tech_filter.xml" target-dir="res/xml"/>
     </platform>
 
 </plugin>
