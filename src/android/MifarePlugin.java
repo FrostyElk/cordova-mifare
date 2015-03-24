@@ -45,7 +45,8 @@ public class MifarePlugin extends CordovaPlugin {
     private static final String LOGTAG = "MifarePlugin";
     private static final String ACTION_INIT = "init";
     private static final String TAG_EVENT_DETECTED = "onTagDetected";
-    private static final int NTAG216_MEMORY_PAGES = 221;
+//    private static final int NTAG216_MEMORY_PAGES = 221;
+    private static final int NTAG216_MEMORY_PAGES = 50;
 
 
     private static String TAG = "MifarePLugin";
@@ -215,7 +216,14 @@ public class MifarePlugin extends CordovaPlugin {
      */
     private PluginResult init(final JSONObject options, final CallbackContext callbackContext) {
         // Start the dispatch here, Cordova will not send onResume at first start
-        NxpNfcLibLite.getInstance().startForeGroundDispatch();
+//        NxpNfcLibLite.getInstance().startForeGroundDispatch();
+
+        if ( NxpNfcLibLite.getInstance() != null) {
+            NxpLogUtils.i(LOGTAG, "Starting startForeGroundDispatch in init");
+            NxpNfcLibLite.getInstance().startForeGroundDispatch();
+        } else {
+            NxpLogUtils.w(LOGTAG, "NxpNfcLibLite.getInstance() == null");
+        }
 
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
