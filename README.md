@@ -1,4 +1,4 @@
-cordova-parse-plugin
+cordova-mifare
 ====================
 
 Cordova Plugin for the MIFARE SDK.
