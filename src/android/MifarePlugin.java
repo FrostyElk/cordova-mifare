@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,14 +19,20 @@ package se.frostyelk.cordova.mifare;
 import android.content.Intent;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
+import com.nxp.nfclib.classic.MFClassic;
 import com.nxp.nfclib.exceptions.SmartCardException;
-import com.nxp.nfclib.ntag.NTag210;
-import com.nxp.nfclib.ntag.NTag213215216;
-import com.nxp.nfclib.ntag.NTag213F216F;
+import com.nxp.nfclib.icode.*;
+import com.nxp.nfclib.ntag.*;
+import com.nxp.nfclib.plus.PlusSL1;
+import com.nxp.nfclib.ultralight.Ultralight;
+import com.nxp.nfclib.ultralight.UltralightC;
+import com.nxp.nfclib.ultralight.UltralightEV1;
 import com.nxp.nfclib.utils.NxpLogUtils;
 import com.nxp.nfclib.utils.Utilities;
 import com.nxp.nfcliblite.Interface.NxpNfcLibLite;
 import com.nxp.nfcliblite.Interface.Nxpnfcliblitecallback;
+import com.nxp.nfcliblite.cards.DESFire;
+import com.nxp.nfcliblite.cards.Plus;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
@@ -45,7 +51,13 @@ public class MifarePlugin extends CordovaPlugin {
     private static final String LOGTAG = "MifarePlugin";
     private static final String ACTION_INIT = "init";
     private static final String TAG_EVENT_DETECTED = "onTagDetected";
-//    private static final int NTAG216_MEMORY_PAGES = 221;
+    private static final String TAG_EVENT_ERROR = "onTagError";
+    private static final String TAG_EVENT_ERROR_TYPE_SECURITY = "Security";
+    private static final String TAG_EVENT_ERROR_TYPE_IOREAD = "IORead";
+    private static final String TAG_EVENT_ERROR_TYPE_CARD = "Card";
+    private static final String TAG_EVENT_ERROR_TYPE_UNSUPPORTED = "Unsupported";
+    private static final int UNIVERSAL_NUMBER = 42;
+    //    private static final int NTAG216_MEMORY_PAGES = 221;
     private static final int NTAG216_MEMORY_PAGES = 50;
 
 
@@ -53,6 +65,9 @@ public class MifarePlugin extends CordovaPlugin {
 
     private String password;
     private byte[] payload;
+
+    // It seems that password errors returns as IOException instead of SmartCardException?!
+    private boolean checkForPasswordSentAtIOError = false;
 
     private void sendEventToWebView(String eventName, JSONObject jsonData) {
         final String url = "javascript:cordova.fireDocumentEvent('" + eventName + "', " + jsonData.toString() + ");";
@@ -111,27 +126,126 @@ public class MifarePlugin extends CordovaPlugin {
                 NxpLogUtils.i(TAG, "Found a NTag213F216F Card!");
                 handleCardDetected(nTag213F216F);
             }
+
+            @Override
+            public void onUltraLightCardDetected(Ultralight ultralight) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onUltraLightCCardDetected(UltralightC ultralightC) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onUltraLightEV1CardDetected(UltralightEV1 ultralightEV1) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onClassicCardDetected(MFClassic mfClassic) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onDESFireCardDetected(DESFire desFire) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onNTag203xCardDetected(NTag203x nTag203x) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onNTagI2CCardDetected(NTagI2C nTagI2C) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onICodeSLIDetected(ICodeSLI iCodeSLI) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onICodeSLISDetected(ICodeSLIS iCodeSLIS) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onICodeSLILDetected(ICodeSLIL iCodeSLIL) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onICodeSLIXDetected(ICodeSLIX iCodeSLIX) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onICodeSLIXSDetected(ICodeSLIXS iCodeSLIXS) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onICodeSLIXLDetected(ICodeSLIXL iCodeSLIXL) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onPlusCardDetected(Plus plus) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onPlusSL1CardDetected(PlusSL1 plusSL1) {
+                handleUnsupportedCards();
+            }
+
+            @Override
+            public void onICodeSLIX2Detected(ICodeSLIX2 iCodeSLIX2) {
+                handleUnsupportedCards();
+            }
         };
 
         NxpNfcLibLite.getInstance().filterIntent(intent, callback);
     }
 
+
     /**
      *
+     */
+    private void handleUnsupportedCards() {
+        JSONObject result = new JSONObject();
+        try {
+            result.put("nfcType", TAG_EVENT_ERROR_TYPE_UNSUPPORTED);
+            result.put("nfcCode", UNIVERSAL_NUMBER);
+            result.put("nfcMessage", "Unsupported tag detected");
+        } catch (JSONException e) {
+            NxpLogUtils.v(TAG, "JSONException: " + e.getMessage());
+        }
+
+        sendEventToWebView(TAG_EVENT_ERROR, result);
+    }
+
+
+    /**
      * @param nTag210 The tag
      */
     private void handleCardDetected(NTag210 nTag210) {
 
         byte pack[] = {0, 0};
         byte pw[] = password.getBytes();
-        NxpLogUtils.i(TAG, "Sent Pw[]: " + Utilities.dumpBytes(pw));
 
         try {
 
             nTag210.connect();
             NxpLogUtils.i(TAG, "Connect successful!");
 
+            NxpLogUtils.i(TAG, "Trying Authenticate with Password[]: " + Utilities.dumpBytes(pw));
+            checkForPasswordSentAtIOError = true;
             nTag210.authenticatePwd(pw, pack);
+            checkForPasswordSentAtIOError = false;
             NxpLogUtils.i(TAG, "Authenticate successful!");
 
             payload = nTag210.fastRead(0, NTAG216_MEMORY_PAGES);
@@ -148,10 +262,48 @@ public class MifarePlugin extends CordovaPlugin {
             }
 
         } catch (SmartCardException e) {
-            NxpLogUtils.v(TAG, "SmartCardException: " + e.getMessage());
+            JSONObject result = new JSONObject();
+            try {
+                if (e.getExcetionType() == SmartCardException.EXCEPTIONTYPE_SECURITY) {
+                    result.put("nfcType", TAG_EVENT_ERROR_TYPE_SECURITY);
+                } else {
+                    result.put("nfcType", TAG_EVENT_ERROR_TYPE_CARD);
+                }
+                result.put("nfcCode", e.getErrorCode());
+                result.put("nfcMessage", e.getMessage());
+            } catch (JSONException e1) {
+                NxpLogUtils.v(TAG, "JSONException: " + e1.getMessage());
+            }
+
+            sendEventToWebView(TAG_EVENT_ERROR, result);
         } catch (IOException e) {
-            NxpLogUtils.v(TAG, "IOException" + e.getMessage());
+            JSONObject result = new JSONObject();
+            try {
+                // Ugly hack here to give a better response to pw errors
+                if (checkForPasswordSentAtIOError) {
+                    result.put("nfcType", TAG_EVENT_ERROR_TYPE_SECURITY);
+                    result.put("nfcCode", UNIVERSAL_NUMBER);
+                    result.put("nfcMessage", "Password Authentication failed");
+                    checkForPasswordSentAtIOError = false;
+                } else {
+                    result.put("nfcType", TAG_EVENT_ERROR_TYPE_IOREAD);
+                    result.put("nfcCode", UNIVERSAL_NUMBER);
+                    result.put("nfcMessage", e.getMessage());
+
+                }
+            } catch (JSONException e1) {
+                NxpLogUtils.v(TAG, "JSONException: " + e1.getMessage());
+            }
+
+            sendEventToWebView(TAG_EVENT_ERROR, result);
+        } finally {
+            try {
+                nTag210.close();
+            } catch (IOException e) {
+                NxpLogUtils.v(TAG, "IOException at close(): " + e.getMessage());
+            }
         }
+
     }
 
 
@@ -210,7 +362,8 @@ public class MifarePlugin extends CordovaPlugin {
 
     /**
      * Initialize the plugin with options
-     * @param options Options {password: tag password}
+     *
+     * @param options         Options {password: tag password}
      * @param callbackContext Callback
      * @return PluginResult
      */
@@ -218,7 +371,7 @@ public class MifarePlugin extends CordovaPlugin {
         // Start the dispatch here, Cordova will not send onResume at first start
 //        NxpNfcLibLite.getInstance().startForeGroundDispatch();
 
-        if ( NxpNfcLibLite.getInstance() != null) {
+        if (NxpNfcLibLite.getInstance() != null) {
             NxpLogUtils.i(LOGTAG, "Starting startForeGroundDispatch in init");
             NxpNfcLibLite.getInstance().startForeGroundDispatch();
         } else {
