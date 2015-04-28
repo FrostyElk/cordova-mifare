@@ -27,5 +27,16 @@ mifareExport.init = function (options, successCallback, failureCallback) {
 	cordova.exec(successCallback, failureCallback, 'MifarePlugin', 'init',[options]);
 };
 
+/**
+* Write Tag data.
+* data = {
+* 	"payload": byte[]
+* }
+*
+*/
+mifareExport.writeTag = function (data, successCallback, failureCallback) {
+	cordova.exec(successCallback, failureCallback, 'MifarePlugin', 'writeTag',[data]);
+};
+
 
 module.exports = mifareExport;

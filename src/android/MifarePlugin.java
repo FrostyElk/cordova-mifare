@@ -50,6 +50,7 @@ public class MifarePlugin extends CordovaPlugin {
 
     private static final String LOGTAG = "MifarePlugin";
     private static final String ACTION_INIT = "init";
+    private static final String ACTION_WRITE_TAG_DATA = "writeTag";
     private static final String TAG_EVENT_DETECTED = "onTagDetected";
     private static final String TAG_EVENT_ERROR = "onTagError";
     private static final String TAG_EVENT_ERROR_TYPE_SECURITY = "Security";
@@ -57,14 +58,13 @@ public class MifarePlugin extends CordovaPlugin {
     private static final String TAG_EVENT_ERROR_TYPE_CARD = "Card";
     private static final String TAG_EVENT_ERROR_TYPE_UNSUPPORTED = "Unsupported";
     private static final int UNIVERSAL_NUMBER = 42;
-    //    private static final int NTAG216_MEMORY_PAGES = 221;
-    private static final int NTAG216_MEMORY_PAGES = 50;
-
-
+    private static final int MAX_FAST_READ_PAGES = 50;
     private static String TAG = "MifarePLugin";
 
     private String password;
     private byte[] payload;
+    private NTag nTag;
+    private Tag tagInfo;
 
     // It seems that password errors returns as IOException instead of SmartCardException?!
     private boolean checkForPasswordSentAtIOError = false;
@@ -105,7 +105,7 @@ public class MifarePlugin extends CordovaPlugin {
         NxpLogUtils.i(TAG, "onNewIntent Intent: " + intent.toString());
         NxpLogUtils.i(TAG, "onNewIntent Action: " + intent.getAction());
 
-        Tag tagInfo = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+        tagInfo = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
         NxpLogUtils.i(TAG, "Tag info: " + tagInfo.toString());
 
         Nxpnfcliblitecallback callback = new Nxpnfcliblitecallback() {
@@ -234,6 +234,8 @@ public class MifarePlugin extends CordovaPlugin {
      */
     private void handleCardDetected(NTag210 nTag210) {
 
+        nTag = nTag210;
+
         byte pack[] = {0, 0};
         byte pw[] = password.getBytes();
 
@@ -242,20 +244,53 @@ public class MifarePlugin extends CordovaPlugin {
             nTag210.connect();
             NxpLogUtils.i(TAG, "Connect successful!");
 
-            NxpLogUtils.i(TAG, "Trying Authenticate with Password[]: " + Utilities.dumpBytes(pw));
-            checkForPasswordSentAtIOError = true;
-            nTag210.authenticatePwd(pw, pack);
-            checkForPasswordSentAtIOError = false;
-            NxpLogUtils.i(TAG, "Authenticate successful!");
+            if (!"".equals(password)) {
+                NxpLogUtils.i(TAG, "Trying Authenticate with Password[]: " + Utilities.dumpBytes(pw));
+                checkForPasswordSentAtIOError = true;
+                nTag210.authenticatePwd(pw, pack);
+                checkForPasswordSentAtIOError = false;
+                NxpLogUtils.i(TAG, "Authenticate successful!");
+            }
 
-            payload = nTag210.fastRead(0, NTAG216_MEMORY_PAGES);
-            NxpLogUtils.i(TAG, "Payload read: " + Utilities.dumpBytes(payload));
+            // Read full memory
+            // One page = 4 bytes
+            int userAvailableMemory = nTag.getCardDetails().freeMemory;
+            int numbPages = userAvailableMemory / 4;
+            NxpLogUtils.i(TAG, "Card Details User Memory size: " + userAvailableMemory);
+
+            // Older devices can only read a limited number of pages,
+            // some testing ended up with the number MAX_FAST_READ_PAGES
+            int startPage = 0;
+            int endPage = numbPages >= MAX_FAST_READ_PAGES ? MAX_FAST_READ_PAGES - 1 : numbPages - 1;
+            boolean doneReading = false;
+
+            payload = new byte[]{};
+
+            while (!doneReading) {
+                payload = Utilities.append(payload, nTag210.fastRead(startPage, endPage));
+
+                if (endPage >= numbPages - 1) {
+                    doneReading = true;
+                } else {
+                    startPage = endPage + 1;
+                    endPage = (endPage + MAX_FAST_READ_PAGES) >= numbPages ? numbPages - 1 : endPage + MAX_FAST_READ_PAGES;
+                }
+            }
+
+            NxpLogUtils.i(TAG, "Length of payload read " + payload.length);
 
             JSONObject result = new JSONObject();
-            JSONArray payloadArray;
+            JSONArray tagUID;
+
             try {
-                payloadArray = new JSONArray(payload);
+                tagUID = new JSONArray(nTag.getUID());
+                result.put("tagUID", tagUID);
+                result.put("tagName", nTag.getTagName());
+
+                JSONArray payloadArray = new JSONArray(payload);
                 result.put("payload", payloadArray);
+                payload = null;
+
                 sendEventToWebView(TAG_EVENT_DETECTED, result);
             } catch (JSONException e) {
                 NxpLogUtils.v(TAG, "JSONException: " + e.getMessage());
@@ -349,6 +384,8 @@ public class MifarePlugin extends CordovaPlugin {
 
         if (ACTION_INIT.equals(action)) {
             result = init(args.getJSONObject(0), callbackContext);
+        } else if (ACTION_WRITE_TAG_DATA.equals(action)) {
+            result = writeTag(args.getJSONObject(0), callbackContext);
         } else {
             result = new PluginResult(Status.INVALID_ACTION);
         }
@@ -381,13 +418,33 @@ public class MifarePlugin extends CordovaPlugin {
         cordova.getThreadPool().execute(new Runnable() {
             public void run() {
                 NxpLogUtils.i(LOGTAG, "init: " + options.toString());
-                try {
-                    password = options.getString("password");
-                } catch (JSONException e) {
-                    NxpLogUtils.w(TAG, e.getMessage());
-                    callbackContext.error("Options not JSON");
-                }
+                password = options.optString("password", "");
                 callbackContext.success("OK");
+            }
+        });
+
+        return null;
+    }
+
+
+    /**
+     * Write tag data
+     *
+     * @param data JSONObject
+     * @param callbackContext Callback
+     * @return PluginResult
+     */
+    private PluginResult writeTag(final JSONObject data, final CallbackContext callbackContext) {
+
+        cordova.getThreadPool().execute(new Runnable() {
+            public void run() {
+                NxpLogUtils.i(LOGTAG, "writeTag executed");
+
+                // TODO: Implement write tag
+
+                callbackContext.success("OK");
+                callbackContext.error("NOK");
+
             }
         });
 
