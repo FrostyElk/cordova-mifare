@@ -106,6 +106,12 @@ public class MifarePlugin extends CordovaPlugin {
         NxpLogUtils.i(TAG, "onNewIntent Action: " + intent.getAction());
 
         tagInfo = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+
+        // Only act on intents from a tag
+        if (tagInfo == null) {
+            return;
+        }
+
         NxpLogUtils.i(TAG, "Tag info: " + tagInfo.toString());
 
         Nxpnfcliblitecallback callback = new Nxpnfcliblitecallback() {
@@ -430,7 +436,7 @@ public class MifarePlugin extends CordovaPlugin {
     /**
      * Write tag data
      *
-     * @param data JSONObject
+     * @param data            JSONObject
      * @param callbackContext Callback
      * @return PluginResult
      */
