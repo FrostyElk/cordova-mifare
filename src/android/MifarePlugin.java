@@ -65,6 +65,7 @@ public class MifarePlugin extends CordovaPlugin {
     private byte[] payload;
     private NTag nTag;
     private Tag tagInfo;
+    private Intent initializeIntent;
 
     // It seems that password errors returns as IOException instead of SmartCardException?!
     private boolean checkForPasswordSentAtIOError = false;
@@ -97,6 +98,14 @@ public class MifarePlugin extends CordovaPlugin {
         // The default for NfcLogUtils logging is off, turn it on
         NxpLogUtils.enableLog();
         NxpLogUtils.i(LOGTAG, "MIFARE Cordova plugin pluginInitialize");
+
+        initializeIntent = cordova.getActivity().getIntent();
+        if (initializeIntent != null) {
+            NxpLogUtils.i(TAG, "pluginInitialize Intent: " + initializeIntent.toString());
+            NxpLogUtils.i(TAG, "pluginInitialize Action: " + initializeIntent.getAction());
+        } else {
+            NxpLogUtils.i(LOGTAG, "No Intent in pluginInitialize");
+        }
     }
 
     @Override
@@ -357,16 +366,25 @@ public class MifarePlugin extends CordovaPlugin {
     @Override
     public void onPause(boolean multitasking) {
         super.onPause(multitasking);
-        // TODO: How do we activate background scans?
-//        NxpNfcLibLite.getInstance().stopForeGroundDispatch();
         NxpLogUtils.i(LOGTAG, "onPause");
+        try {
+            NxpNfcLibLite.getInstance().stopForeGroundDispatch();
+        } catch (IllegalStateException e) {
+            NxpLogUtils.w(LOGTAG, "IllegalStateException for stopForeGroundDispatch in onPause, ignoring!");
+        }
+
     }
 
     @Override
     public void onResume(boolean multitasking) {
         super.onResume(multitasking);
-        NxpNfcLibLite.getInstance().startForeGroundDispatch();
         NxpLogUtils.i(LOGTAG, "onResume");
+
+        try {
+            NxpNfcLibLite.getInstance().startForeGroundDispatch();
+        } catch (IllegalStateException e) {
+            NxpLogUtils.w(LOGTAG, "IllegalStateException for startForeGroundDispatch in onResume, ignoring!");
+        }
     }
 
     /**
@@ -412,11 +430,13 @@ public class MifarePlugin extends CordovaPlugin {
      */
     private PluginResult init(final JSONObject options, final CallbackContext callbackContext) {
         // Start the dispatch here, Cordova will not send onResume at first start
-//        NxpNfcLibLite.getInstance().startForeGroundDispatch();
-
         if (NxpNfcLibLite.getInstance() != null) {
             NxpLogUtils.i(LOGTAG, "Starting startForeGroundDispatch in init");
-            NxpNfcLibLite.getInstance().startForeGroundDispatch();
+            try {
+                NxpNfcLibLite.getInstance().startForeGroundDispatch();
+            } catch (IllegalStateException e) {
+                NxpLogUtils.w(LOGTAG, "IllegalStateException for startForeGroundDispatch in init, ignoring");
+            }
         } else {
             NxpLogUtils.w(LOGTAG, "NxpNfcLibLite.getInstance() == null");
         }
@@ -426,6 +446,17 @@ public class MifarePlugin extends CordovaPlugin {
                 NxpLogUtils.i(LOGTAG, "init: " + options.toString());
                 password = options.optString("password", "");
                 callbackContext.success("OK");
+
+                // If this is actually a warm start from the NFC activity chooser
+                // run the Intent for discovered tags.
+                NxpLogUtils.i(LOGTAG, "Checking for NFC in init");
+                NxpLogUtils.i(TAG, "init Intent: " + initializeIntent.toString());
+                NxpLogUtils.i(TAG, "init Action: " + initializeIntent.getAction());
+
+                if (initializeIntent != null && "android.nfc.action.TECH_DISCOVERED".equals(initializeIntent.getAction())) {
+                    NxpLogUtils.i(LOGTAG, "Found NFC in init, running onNewIntent");
+                    onNewIntent(initializeIntent);
+                }
             }
         });
 
