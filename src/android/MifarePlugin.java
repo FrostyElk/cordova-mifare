@@ -74,8 +74,8 @@ public class MifarePlugin extends CordovaPlugin {
         final String url = "javascript:cordova.fireDocumentEvent('" + eventName + "', " + jsonData.toString() + ");";
         NxpLogUtils.i(LOGTAG, "sendEventToWebView: " + url);
 
-        if (webView != null) {
-            webView.post(new Runnable() {
+        if ((webView != null) && (webView.getView() != null)) {
+            webView.getView().post(new Runnable() {
 
                 @Override
                 public void run() {
